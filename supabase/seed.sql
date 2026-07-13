@@ -1,0 +1,3 @@
+-- The application UI includes a local sample workspace. Create users through
+-- Supabase Auth, then add profile, appointment type, and availability records
+-- through the authenticated dashboard or Studio.
