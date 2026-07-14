@@ -18,21 +18,38 @@ export default async function ConfirmationPage({ params, searchParams }: {
   const zone = value("zone", "Africa/Lagos");
   const calendarData = encodeURIComponent(`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${type}\nDTSTART:${date.replaceAll("-", "")}T${time.replace(":", "")}00\nDURATION:PT${value("duration", "30")}M\nLOCATION:${location}\nEND:VEVENT\nEND:VCALENDAR`);
 
-  return <main className="confirmation-page">
-    <div className="booking-brand centered"><BrandMark /><strong>Slotwise</strong></div>
-    <section className="confirmation-card">
-      <div className="success-mark">✓</div>
-      <p className="eyebrow">Booking confirmed</p>
-      <h1>You’re all set, {guest.split(" ")[0]}.</h1>
-      <p className="lede centered-text">A confirmation has been sent to your inbox. Maya is looking forward to meeting you.</p>
-      <div className="confirmation-details">
-        <div><span className="detail-icon">◫</span><div><small>Appointment</small><strong>{type}</strong><p>Maya Okafor · {value("duration", "30")} minutes</p></div></div>
-        <div><span className="detail-icon">◷</span><div><small>Date & time</small><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</strong><p>{time} · {zone}</p></div></div>
-        <div><span className="detail-icon">⌖</span><div><small>Location</small><strong>{location}</strong><p>Joining instructions are in your email.</p></div></div>
-        <div><span className="detail-icon">#</span><div><small>Reference</small><strong>{appointmentId}</strong></div></div>
+  return (
+    <main className="confirmation-page">
+      <div className="public-product-bar">
+        <Link className="booking-brand connected" href="/">
+          <BrandMark />
+          <strong>Slotwise</strong>
+          <span className="muted">Booking confirmed</span>
+        </Link>
+        <nav aria-label="Confirmation navigation">
+          <Link className="back-link" href={`/book/${slug}`}>← Back to Booking Page</Link>
+          <Link className="button secondary compact-button" href="/dashboard/appointments">View in Dashboard</Link>
+        </nav>
       </div>
-      <div className="actions centered-actions"><a className="button secondary" href={`data:text/calendar;charset=utf-8,${calendarData}`} download="slotwise-appointment.ics">Add to calendar</a><Link className="button" href={`/book/${slug}`}>Book another session</Link></div>
-      <p className="confirmation-help">Need to make a change? Reply to your confirmation email to contact Maya.</p>
-    </section>
-  </main>;
+
+      <section className="confirmation-card">
+        <div className="success-mark">✓</div>
+        <p className="eyebrow">Booking Confirmed</p>
+        <h1>You’re all set, {guest.split(" ")[0]}.</h1>
+        <p className="lede centered-text">A confirmation has been sent to your inbox. Maya is looking forward to meeting you.</p>
+        <div className="confirmation-details">
+          <div><span className="detail-icon">◫</span><div><small>Appointment</small><strong>{type}</strong><p>Maya Okafor · {value("duration", "30")} minutes</p></div></div>
+          <div><span className="detail-icon">◇</span><div><small>Date & Time</small><strong>{new Date(`${date}T12:00:00`).toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</strong><p>{time} · {zone}</p></div></div>
+          <div><span className="detail-icon">⌖</span><div><small>Location</small><strong>{location}</strong><p>Joining instructions are in your email.</p></div></div>
+          <div><span className="detail-icon">#</span><div><small>Reference</small><strong>{appointmentId}</strong></div></div>
+        </div>
+        <div className="actions centered-actions">
+          <a className="button secondary" href={`data:text/calendar;charset=utf-8,${calendarData}`} download="slotwise-appointment.ics">Add to Calendar</a>
+          <Link className="button" href="/dashboard/appointments">Open Dashboard</Link>
+          <Link className="button secondary" href={`/book/${slug}`}>Book Another Session</Link>
+        </div>
+        <p className="confirmation-help">Need to make a change? Reply to your confirmation email to contact Maya.</p>
+      </section>
+    </main>
+  );
 }

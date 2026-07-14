@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  distDir: ".slotwise-next",
+  allowedDevOrigins: ["127.0.0.1"],
+  devIndicators: false,
   poweredByHeader: false,
   reactStrictMode: true,
 };

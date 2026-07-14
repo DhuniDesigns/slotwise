@@ -4,14 +4,14 @@
   "private": true,
   "engines": { "node": ">=22.0.0" },
   "scripts": {
-    "dev": "node scripts/dev-server.mjs",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-e2e.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

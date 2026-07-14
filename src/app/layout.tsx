@@ -13,6 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
+        <Link className="skip-link" href="#main-content">Skip to main content</Link>
         <header className="topbar">
           <div className="shell topbar-inner">
             <Link className="brand" href="/"><BrandMark />Slotwise</Link>
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </nav>
           </div>
         </header>
-        <AppProvider>{children}</AppProvider>
+        <div id="main-content">
+          <AppProvider>{children}</AppProvider>
+        </div>
       </body>
     </html>
   );
