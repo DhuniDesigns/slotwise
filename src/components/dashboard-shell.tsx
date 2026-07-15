@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandMark, Icon } from "@/components/icons";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const links = [
   ["Overview", "/dashboard", "home"],
@@ -57,6 +58,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     router.push(href);
   }
 
+  async function signOut() {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <div className="app-shell">
       <aside className={`app-sidebar ${menuOpen ? "open" : ""}`}>
@@ -80,7 +88,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <Icon name="external" />
             <div><strong>Open Public Booking Page</strong><small>Connected to this workspace</small></div>
           </Link>
-          <div className="profile-chip"><span className="mini-avatar">MO</span><div><strong>Maya Okafor</strong><small>maya@studio.co</small></div><span>•••</span></div>
+          <div className="profile-chip">
+            <span className="mini-avatar">MO</span>
+            <div><strong>Maya Okafor</strong><small>maya@studio.co</small></div>
+            <button className="profile-signout" type="button" onClick={signOut}>Sign out</button>
+          </div>
         </div>
       </aside>
       <div className="app-main">

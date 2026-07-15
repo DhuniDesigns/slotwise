@@ -927,6 +927,24 @@ textarea:focus {
   border-color: var(--line);
 }
 
+.profile-signout {
+  margin-left: auto;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--quiet);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.profile-signout:hover {
+  border-color: #fff;
+  background: #fff;
+  color: #000;
+}
+
 .mini-avatar,
 .guest-avatar,
 .host-avatar {
@@ -1454,6 +1472,43 @@ textarea:focus {
 
 .login-footer a:hover {
   text-decoration-color: #fff;
+}
+
+.auth-message {
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: #080808;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auth-message.error {
+  border-color: #555;
+  color: #fff;
+}
+
+.auth-message.success {
+  border-color: #fff;
+  background: #fff;
+  color: #000;
+}
+
+.auth-switch {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-switch .text-button,
+.auth-back-button {
+  display: inline-flex;
+  min-height: auto;
+  margin-left: 4px;
+  padding: 0;
+  text-decoration: underline;
 }
 
 .policy-page {
