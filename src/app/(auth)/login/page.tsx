@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { BrandMark } from "@/components/icons";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -18,22 +18,35 @@ function getAuthErrorMessage(message: string) {
     return "Could not reach Supabase Auth. Check your internet connection and Supabase environment variables, then try again.";
   }
 
+  if (message.toLowerCase().includes("email not confirmed")) {
+    return "Please confirm your email address first, then sign in again.";
+  }
+
+  if (message.toLowerCase().includes("provider is not enabled")) {
+    return "Google sign-in is not enabled in Supabase yet. Enable the Google provider in Supabase Auth, then try again.";
+  }
+
   return message;
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<LoginMode>("sign-in");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState<AuthMessage>(null);
+  const [hideUrlError, setHideUrlError] = useState(false);
+  const urlError = hideUrlError ? null : searchParams.get("error");
+  const displayedMessage = message ?? (urlError ? { type: "error" as const, text: getAuthErrorMessage(urlError) } : null);
 
   function switchMode(nextMode: LoginMode) {
     setMode(nextMode);
     setLoading(false);
     setResetSent(false);
     setMessage(null);
+    setHideUrlError(true);
   }
 
   function getNextPath() {
@@ -48,6 +61,7 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
+    setHideUrlError(true);
 
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") || "");
@@ -66,10 +80,35 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  async function continueWithGoogle() {
+    setLoading(true);
+    setMessage(null);
+    setHideUrlError(true);
+
+    const nextPath = getNextPath();
+    const origin = window.location.origin;
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      setMessage({ type: "error", text: getAuthErrorMessage(error.message) });
+    }
+  }
+
   async function signUp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
+    setHideUrlError(true);
 
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") || "");
@@ -108,6 +147,7 @@ export default function LoginPage() {
     event.preventDefault();
     setLoading(true);
     setMessage(null);
+    setHideUrlError(true);
 
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("reset-email") || "");
@@ -146,7 +186,12 @@ export default function LoginPage() {
               <p className="eyebrow">Welcome Back</p>
               <h1>Sign in to Slotwise</h1>
               <p className="muted">Use your email and password to open your scheduling workspace.</p>
-              {message && <p className={`auth-message ${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
+              {displayedMessage && <p className={`auth-message ${displayedMessage.type}`} role={displayedMessage.type === "error" ? "alert" : "status"}>{displayedMessage.text}</p>}
+              <button className="google-auth-button" type="button" onClick={continueWithGoogle} disabled={loading}>
+                <span aria-hidden="true">G</span>
+                Continue with Google
+              </button>
+              <div className="auth-divider"><span>or use email</span></div>
               <form className="login-form" onSubmit={signIn}>
                 <label>
                   Email Address
@@ -176,7 +221,12 @@ export default function LoginPage() {
               <p className="eyebrow">Create Workspace</p>
               <h1>Create your Slotwise account</h1>
               <p className="muted">Start with email and password auth, then connect your scheduling workspace.</p>
-              {message && <p className={`auth-message ${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
+              {displayedMessage && <p className={`auth-message ${displayedMessage.type}`} role={displayedMessage.type === "error" ? "alert" : "status"}>{displayedMessage.text}</p>}
+              <button className="google-auth-button" type="button" onClick={continueWithGoogle} disabled={loading}>
+                <span aria-hidden="true">G</span>
+                Sign up with Google
+              </button>
+              <div className="auth-divider"><span>or create with email</span></div>
               <form className="login-form" onSubmit={signUp}>
                 <label>
                   Email Address
@@ -202,7 +252,7 @@ export default function LoginPage() {
               <p className="eyebrow">Password Reset</p>
               <h1>{resetSent ? "Check your inbox." : "Reset your password."}</h1>
               <p className="muted">{resetSent ? "If the email exists, a reset link has been sent. You can return to sign in when you are ready." : "Enter your account email and we will send password reset instructions."}</p>
-              {message && <p className={`auth-message ${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
+              {displayedMessage && <p className={`auth-message ${displayedMessage.type}`} role={displayedMessage.type === "error" ? "alert" : "status"}>{displayedMessage.text}</p>}
               {!resetSent && (
                 <form className="login-form" onSubmit={sendReset}>
                   <label>
@@ -226,5 +276,13 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

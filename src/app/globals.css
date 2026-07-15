@@ -1390,6 +1390,63 @@ textarea:focus {
   gap: 16px;
 }
 
+.google-auth-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0 16px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: #000;
+}
+
+.google-auth-button:hover {
+  border-color: #fff;
+  background: #e7e7e7;
+  color: #000;
+}
+
+.google-auth-button span {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d8d8d8;
+  border-radius: 50%;
+  color: #111;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auth-divider {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  color: var(--quiet);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.auth-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-divider span {
+  position: relative;
+  padding: 0 10px;
+  background: #000;
+}
+
 .password-field {
   display: flex;
   align-items: center;
