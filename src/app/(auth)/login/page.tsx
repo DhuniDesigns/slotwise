@@ -8,25 +8,77 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type LoginMode = "sign-in" | "sign-up" | "reset";
 type AuthMessage = { type: "error" | "success"; text: string } | null;
+type Credentials = { email: string; password: string } | { error: string };
+
+const AUTH_REQUEST_TIMEOUT_MS = 15000;
 
 function getAuthErrorMessage(message: string) {
-  if (message.toLowerCase().includes("invalid login credentials")) {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("invalid login credentials")) {
     return "That email or password is not correct.";
   }
 
-  if (message.toLowerCase().includes("failed to fetch")) {
+  if (lowerMessage.includes("failed to fetch")) {
     return "Could not reach Supabase Auth. Check your internet connection and Supabase environment variables, then try again.";
   }
 
-  if (message.toLowerCase().includes("email not confirmed")) {
+  if (lowerMessage.includes("email not confirmed")) {
     return "Please confirm your email address first, then sign in again.";
   }
 
-  if (message.toLowerCase().includes("provider is not enabled")) {
+  if (lowerMessage.includes("provider is not enabled")) {
     return "Google sign-in is not enabled in Supabase yet. Enable the Google provider in Supabase Auth, then try again.";
   }
 
+  if (lowerMessage.includes("timed out")) {
+    return "Supabase Auth did not respond. Check your connection and Supabase Auth settings, then try again.";
+  }
+
   return message;
+}
+
+function getCaughtAuthErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return getAuthErrorMessage(error.message);
+  }
+
+  return "Something went wrong while contacting Supabase Auth. Please try again.";
+}
+
+async function withAuthTimeout<T>(request: Promise<T>) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("Auth request timed out")), AUTH_REQUEST_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function getEmailAndPassword(form: HTMLFormElement): Credentials {
+  const formData = new FormData(form);
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  if (!email) {
+    return { error: "Enter your email address." };
+  }
+
+  if (!password) {
+    return { error: "Enter your password." };
+  }
+
+  if (password.length < 8) {
+    return { error: "Use at least 8 characters for your password." };
+  }
+
+  return { email, password };
 }
 
 function LoginContent() {
@@ -50,10 +102,6 @@ function LoginContent() {
   }
 
   function getNextPath() {
-    if (typeof window === "undefined") {
-      return "/dashboard/calendar";
-    }
-
     return new URLSearchParams(window.location.search).get("next") || "/dashboard/calendar";
   }
 
@@ -63,21 +111,32 @@ function LoginContent() {
     setMessage(null);
     setHideUrlError(true);
 
-    const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") || "");
-    const password = String(formData.get("password") || "");
-    const nextPath = getNextPath();
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
+    const credentials = getEmailAndPassword(event.currentTarget);
+    if ("error" in credentials) {
       setLoading(false);
-      setMessage({ type: "error", text: getAuthErrorMessage(error.message) });
+      setMessage({ type: "error", text: credentials.error });
       return;
     }
 
-    router.push(nextPath);
-    router.refresh();
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await withAuthTimeout(
+        supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        }),
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      router.push(getNextPath());
+      router.refresh();
+    } catch (error) {
+      setLoading(false);
+      setMessage({ type: "error", text: getCaughtAuthErrorMessage(error) });
+    }
   }
 
   async function continueWithGoogle() {
@@ -85,22 +144,33 @@ function LoginContent() {
     setMessage(null);
     setHideUrlError(true);
 
-    const nextPath = getNextPath();
-    const origin = window.location.origin;
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-        queryParams: {
-          prompt: "select_account",
-        },
-      },
-    });
+    try {
+      const origin = window.location.origin;
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await withAuthTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(getNextPath())}`,
+            queryParams: {
+              prompt: "select_account",
+            },
+          },
+        }),
+      );
 
-    if (error) {
+      if (error) {
+        throw new Error(error.message);
+      }
+
       setLoading(false);
-      setMessage({ type: "error", text: getAuthErrorMessage(error.message) });
+      setMessage({
+        type: "error",
+        text: "Google sign-in did not open. Check that Google is enabled in Supabase Auth and try again.",
+      });
+    } catch (error) {
+      setLoading(false);
+      setMessage({ type: "error", text: getCaughtAuthErrorMessage(error) });
     }
   }
 
@@ -110,37 +180,45 @@ function LoginContent() {
     setMessage(null);
     setHideUrlError(true);
 
-    const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") || "");
-    const password = String(formData.get("password") || "");
-    const nextPath = getNextPath();
-    const origin = window.location.origin;
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage({ type: "error", text: getAuthErrorMessage(error.message) });
+    const credentials = getEmailAndPassword(event.currentTarget);
+    if ("error" in credentials) {
+      setLoading(false);
+      setMessage({ type: "error", text: credentials.error });
       return;
     }
 
-    if (data.session) {
-      router.push(nextPath);
-      router.refresh();
-      return;
-    }
+    try {
+      const origin = window.location.origin;
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await withAuthTimeout(
+        supabase.auth.signUp({
+          email: credentials.email,
+          password: credentials.password,
+          options: {
+            emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(getNextPath())}`,
+          },
+        }),
+      );
 
-    setMessage({
-      type: "success",
-      text: "Account created. If email confirmation is enabled, check your inbox before signing in.",
-    });
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.session) {
+        router.push(getNextPath());
+        router.refresh();
+        return;
+      }
+
+      setLoading(false);
+      setMessage({
+        type: "success",
+        text: "Account created. Check your email to confirm your account, then come back and sign in.",
+      });
+    } catch (error) {
+      setLoading(false);
+      setMessage({ type: "error", text: getCaughtAuthErrorMessage(error) });
+    }
   }
 
   async function sendReset(event: React.FormEvent<HTMLFormElement>) {
@@ -150,20 +228,32 @@ function LoginContent() {
     setHideUrlError(true);
 
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("reset-email") || "");
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
-    });
+    const email = String(formData.get("reset-email") || "").trim();
 
-    setLoading(false);
-    setResetSent(true);
+    if (!email) {
+      setLoading(false);
+      setMessage({ type: "error", text: "Enter your email address." });
+      return;
+    }
 
-    if (error) {
-      setMessage({
-        type: "error",
-        text: "We could not send the reset email from Supabase. Check your Auth redirect settings, then try again.",
-      });
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await withAuthTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/login`,
+        }),
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setLoading(false);
+      setResetSent(true);
+    } catch (error) {
+      setLoading(false);
+      setResetSent(false);
+      setMessage({ type: "error", text: getCaughtAuthErrorMessage(error) });
     }
   }
 
@@ -192,15 +282,15 @@ function LoginContent() {
                 Continue with Google
               </button>
               <div className="auth-divider"><span>or use email</span></div>
-              <form className="login-form" onSubmit={signIn}>
+              <form className="login-form" onSubmit={signIn} noValidate>
                 <label>
                   Email Address
-                  <input name="email" type="email" autoComplete="email" spellCheck={false} placeholder="maya@studio.co" required />
+                  <input name="email" type="email" autoComplete="email" spellCheck={false} placeholder="maya@studio.co" />
                 </label>
                 <label>
                   Password
                   <span className="password-field">
-                    <input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required minLength={8} />
+                    <input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" />
                     <button type="button" className="password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
                       {showPassword ? "Hide" : "Show"}
                     </button>
@@ -227,15 +317,15 @@ function LoginContent() {
                 Sign up with Google
               </button>
               <div className="auth-divider"><span>or create with email</span></div>
-              <form className="login-form" onSubmit={signUp}>
+              <form className="login-form" onSubmit={signUp} noValidate>
                 <label>
                   Email Address
-                  <input name="email" type="email" autoComplete="email" spellCheck={false} placeholder="you@company.com" required />
+                  <input name="email" type="email" autoComplete="email" spellCheck={false} placeholder="you@company.com" />
                 </label>
                 <label>
                   Password
                   <span className="password-field">
-                    <input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Create a secure password" required minLength={8} />
+                    <input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Create a secure password" />
                     <button type="button" className="password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"}>
                       {showPassword ? "Hide" : "Show"}
                     </button>
@@ -254,10 +344,10 @@ function LoginContent() {
               <p className="muted">{resetSent ? "If the email exists, a reset link has been sent. You can return to sign in when you are ready." : "Enter your account email and we will send password reset instructions."}</p>
               {displayedMessage && <p className={`auth-message ${displayedMessage.type}`} role={displayedMessage.type === "error" ? "alert" : "status"}>{displayedMessage.text}</p>}
               {!resetSent && (
-                <form className="login-form" onSubmit={sendReset}>
+                <form className="login-form" onSubmit={sendReset} noValidate>
                   <label>
                     Email Address
-                    <input name="reset-email" type="email" autoComplete="email" spellCheck={false} placeholder="maya@studio.co" required />
+                    <input name="reset-email" type="email" autoComplete="email" spellCheck={false} placeholder="maya@studio.co" />
                   </label>
                   <button className="full-login-button" disabled={loading} aria-live="polite">
                     {loading ? <><span className="button-spinner" />Sending Reset Link...</> : "Send Reset Link"}
