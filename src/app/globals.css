@@ -835,6 +835,14 @@ textarea:focus {
 .brand,
 .nav a { color: #fff; }
 .nav a:hover { background: #111; color: #fff; }
+.nav a.button {
+  color: #000;
+}
+
+.nav a.button:hover {
+  background: #dcdcdc;
+  color: #000;
+}
 
 .card,
 .surface,
