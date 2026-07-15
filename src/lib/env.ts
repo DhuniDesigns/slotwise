@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 const serverSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 });
 
 export function getServerEnv() {
-  return serverSchema.parse(process.env);
+  return {
+    ...getPublicSupabaseConfig(),
+    ...serverSchema.parse(process.env),
+  };
 }
-
