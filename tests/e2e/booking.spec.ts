@@ -31,8 +31,12 @@ test("invitee sees validation and completes the public booking flow", async ({ p
   await expect(page).toHaveURL(/\/book\/maya$/);
 
   await page.getByRole("checkbox", { name: "I agree to receive emails about this appointment." }).check();
-  await page.getByRole("button", { name: "Confirm Booking · 10:30" }).click();
-  await expect(page.getByRole("heading", { name: "You’re all set, Ada." })).toBeVisible();
+  await Promise.all([
+    page.waitForURL(/\/book\/maya\/confirmation\//, { timeout: 30_000 }),
+    page.getByRole("button", { name: "Confirm Booking · 10:30" }).click(),
+  ]);
+  await waitForAppReady(page);
+  await expect(page.getByRole("heading", { name: "You’re all set, Ada." })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("link", { name: "Open Dashboard" })).toHaveAttribute("href", "/dashboard/appointments");
   expect(consoleErrors).toEqual([]);
 });

@@ -9,10 +9,92 @@ describe("generateSlots", () => {
     expect(slots.map((s)=>s.startsAt.toISOString())).toEqual(["2026-07-06T08:00:00.000Z","2026-07-06T09:00:00.000Z","2026-07-06T09:30:00.000Z"]);
   });
 
+  it("allows slots that touch a busy boundary without overlapping", () => {
+    const slots = generateSlots({
+      date: "2026-07-06",
+      hostTimezone: "Africa/Lagos",
+      durationMinutes: 30,
+      minimumNoticeMinutes: 0,
+      weeklyWindows: weekdays,
+      busy: [{ startsAt: new Date("2026-07-06T08:30:00Z"), endsAt: new Date("2026-07-06T09:00:00Z") }],
+      now: new Date("2026-07-01T00:00:00Z"),
+      stepMinutes: 30,
+    });
+
+    expect(slots.map((s) => `${s.startsAt.toISOString()}-${s.endsAt.toISOString()}`)).toContain(
+      "2026-07-06T08:00:00.000Z-2026-07-06T08:30:00.000Z",
+    );
+    expect(slots.map((s) => `${s.startsAt.toISOString()}-${s.endsAt.toISOString()}`)).toContain(
+      "2026-07-06T09:00:00.000Z-2026-07-06T09:30:00.000Z",
+    );
+  });
+
+  it("removes partially overlapping slots", () => {
+    const slots = generateSlots({
+      date: "2026-07-06",
+      hostTimezone: "Africa/Lagos",
+      durationMinutes: 60,
+      minimumNoticeMinutes: 0,
+      weeklyWindows: { 1: [{ start: "09:00", end: "12:00" }] },
+      busy: [{ startsAt: new Date("2026-07-06T08:15:00Z"), endsAt: new Date("2026-07-06T09:45:00Z") }],
+      now: new Date("2026-07-01T00:00:00Z"),
+      stepMinutes: 30,
+    });
+
+    expect(slots.map((s) => s.startsAt.toISOString())).toEqual(["2026-07-06T10:00:00.000Z"]);
+  });
+
   it("respects minimum notice and unavailable overrides", () => {
     const base = { date:"2026-07-06", hostTimezone:"Africa/Lagos", durationMinutes:30, weeklyWindows:weekdays, busy:[], now:new Date("2026-07-06T07:30:00Z"), stepMinutes:30 };
     expect(generateSlots({...base,minimumNoticeMinutes:120})).toHaveLength(1);
     expect(generateSlots({...base,minimumNoticeMinutes:0,override:{unavailable:true}})).toEqual([]);
+  });
+
+  it("uses override windows instead of weekly availability", () => {
+    const slots = generateSlots({
+      date: "2026-07-06",
+      hostTimezone: "Africa/Lagos",
+      durationMinutes: 30,
+      minimumNoticeMinutes: 0,
+      weeklyWindows: weekdays,
+      override: { unavailable: false, windows: [{ start: "13:00", end: "14:00" }] },
+      busy: [],
+      now: new Date("2026-07-01T00:00:00Z"),
+      stepMinutes: 30,
+    });
+
+    expect(slots.map((s) => s.startsAt.toISOString())).toEqual([
+      "2026-07-06T12:00:00.000Z",
+      "2026-07-06T12:30:00.000Z",
+    ]);
+  });
+
+  it("rejects overnight windows for V1", () => {
+    const slots = generateSlots({
+      date: "2026-07-06",
+      hostTimezone: "Africa/Lagos",
+      durationMinutes: 30,
+      minimumNoticeMinutes: 0,
+      weeklyWindows: { 1: [{ start: "23:30", end: "00:30" }] },
+      busy: [],
+      now: new Date("2026-07-01T00:00:00Z"),
+      stepMinutes: 30,
+    });
+
+    expect(slots).toEqual([]);
+  });
+
+  it("rejects invalid appointment durations", () => {
+    expect(() =>
+      generateSlots({
+        date: "2026-07-06",
+        hostTimezone: "Africa/Lagos",
+        durationMinutes: 0,
+        minimumNoticeMinutes: 0,
+        weeklyWindows: weekdays,
+        busy: [],
+      }),
+    ).toThrow("durationMinutes must be positive");
   });
 
   it("handles quarter-hour offsets", () => {

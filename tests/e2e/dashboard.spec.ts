@@ -49,6 +49,10 @@ test("login supports email/password, show password, forgot password, and legal l
   await page.getByRole("button", { name: "Hide" }).click();
   await expect(page.locator("input[name='password']")).toHaveAttribute("type", "password");
 
+  await page.route("**/auth/v1/recover**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
   await page.getByRole("button", { name: "Forgot Password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password." })).toBeVisible();
   await page.getByLabel("Email Address").fill("maya@studio.co");
@@ -56,6 +60,22 @@ test("login supports email/password, show password, forgot password, and legal l
   await expect(page.getByRole("heading", { name: "Check your inbox." })).toBeVisible();
   await page.getByRole("button", { name: "Back to Sign In" }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Slotwise" })).toBeVisible();
+});
+
+test("forgot password shows a clear error when Supabase Auth is unreachable", async ({ page }) => {
+  await page.route("**/auth/v1/recover**", async (route) => {
+    await route.abort("failed");
+  });
+
+  await page.goto("/login");
+  await waitForAppReady(page);
+
+  await page.getByRole("button", { name: "Forgot Password?" }).click();
+  await page.getByLabel("Email Address").fill("maya@studio.co");
+  await page.getByRole("button", { name: "Send Reset Link" }).click();
+
+  await expect(page.locator(".auth-message[role='alert']")).toContainText("Could not reach Supabase Auth");
+  await expect(page.getByRole("button", { name: "Send Reset Link" })).toBeEnabled();
 });
 
 test("dashboard calendar switches between schedule views", async ({ page }) => {
