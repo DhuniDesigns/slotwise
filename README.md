@@ -25,3 +25,7 @@ All persisted appointment instants use `timestamptz`. Public writes call a `crea
 ## Quality gates
 
 Run `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run test:e2e`.
+
+## Credits
+
+Designed and built by **Hafsoh Bashar** ([@DhuniDesigns](https://github.com/DhuniDesigns)).
